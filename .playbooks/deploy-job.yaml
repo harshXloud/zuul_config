@@ -1,0 +1,60 @@
+- hosts: all
+  vars:
+    ssh_key: ".playbooks/key"  # Path to your SSH private key
+    remote_user: "ubuntu"
+    remote_ip: "103.240.24.32"
+    website_directory: "/website"  # Path to your website code on the server
+    image_tag: "website:latest"  # Docker image tag
+
+  tasks:
+    - name: Deploy to production
+      delegate_to: localhost
+      block:
+        - name: SSH and update code from Git
+          shell: |
+            ssh -i {{ ssh_key }} {{ remote_user }}@{{ remote_ip }} '
+            cd {{ website_directory }} &&
+            git pull origin main
+            '
+          args:
+            executable: /bin/bash
+
+        - name: Build new Docker image
+          shell: |
+            ssh -i {{ ssh_key }} {{ remote_user }}@{{ remote_ip }} '
+            docker build -t {{ image_tag }} -f {{ website_directory }}/Dockerfile {{ website_directory }}
+            '
+          args:
+            executable: /bin/bash
+
+        - name: Stop current container
+          shell: |
+            ssh -i {{ ssh_key }} {{ remote_user }}@{{ remote_ip }} '
+            docker stop $(docker ps -q --filter ancestor={{ image_tag }}) || true
+            '
+          args:
+            executable: /bin/bash
+
+        - name: Remove stopped containers
+          shell: |
+            ssh -i {{ ssh_key }} {{ remote_user }}@{{ remote_ip }} '
+            docker container prune -f
+            '
+          args:
+            executable: /bin/bash
+
+        - name: Run new container from the latest image
+          shell: |
+            ssh -i {{ ssh_key }} {{ remote_user }}@{{ remote_ip }} '
+            docker run -d --name website_container {{ image_tag }}
+            '
+          args:
+            executable: /bin/bash
+
+        - name: Remove old images
+          shell: |
+            ssh -i {{ ssh_key }} {{ remote_user }}@{{ remote_ip }} '
+            docker image prune -a -f --filter "until=24h"  # Adjust as necessary
+            '
+          args:
+            executable: /bin/bash
