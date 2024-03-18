@@ -1,0 +1,20 @@
+- job:
+    name: test-job
+    description: Runs tests on the main branch
+    run: .playbooks/testjob.yaml
+
+- job:
+    name: deploy-job
+    description: Deploy the main branch to production
+    run: .playbooks/deployjob.yaml
+    dependencies: test-job
+
+- project:
+    default-branch: main
+    gh_check:
+      jobs:
+        - test-job
+    gh_gate:
+      jobs:
+        - test-job
+        - deploy-job
