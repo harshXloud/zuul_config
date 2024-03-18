@@ -1,0 +1,15 @@
+- hosts: all
+  tasks:
+    - name: Build Docker image
+      shell: docker build -t website:tag -f Dockerfile .
+      register: build_result
+      failed_when: "'Successfully built' not in build_result.stdout"
+
+    - name: Check if Docker image was built successfully
+      debug:
+        msg: "Image built successfully, test passed."
+      when: build_result is succeeded
+
+    - name: Remove Docker image
+      shell: docker rmi website:tag
+      when: build_result is succeeded
